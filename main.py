@@ -22,11 +22,12 @@ class FileConsolidator:
         
         # Arquivos que devem ser ignorados
         self.ignore_patterns = {
-            '__pycache__', '.git', '.svn', '.hg', 'node_modules', 
-            '.DS_Store', 'Thumbs.db', '.vscode', '.idea',
+            '__pycache__', '.git', '.svn', '.hg', 'node_modules',
+            '.DS_Store', 'Thumbs.db', '.vscode', '.idea', '.venv', 'venv', 'env',
             '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll', '*.exe',
             '*.class', '*.jar', '*.war', '*.ear'
         }
+
 
     def detect_encoding(self, file_path):
         """Detecta a codificação do arquivo"""
