@@ -174,6 +174,7 @@ class FileConsolidator:
         for file_path, file_info in included:
             relative = file_path.relative_to(self.input_directory)
             content = self.read_file_content(file_path)
+            print(f"  Processando: {relative}")
             lines.append(f"\n{'=' * 80}\n")
             lines.append(f"ARQUIVO: {relative}\n")
             lines.append(f"TAMANHO: {file_info['size']} bytes\n")
@@ -196,6 +197,9 @@ class FileConsolidator:
             self._print_summary(len(included), len(skipped), total_chars)
         except Exception as e:
             print(f"❌ Erro ao escrever arquivo consolidado: {e}")
+
+    def _write_xml(self, included):
+        raise NotImplementedError("Formato XML será implementado em breve. Use --format txt por enquanto.")
 
     def consolidate_files(self, max_file_size_mb=10):
         included, skipped = self._collect_files(max_file_size_mb)
