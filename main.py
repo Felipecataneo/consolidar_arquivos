@@ -200,7 +200,28 @@ class FileConsolidator:
             print(f"❌ Erro ao escrever arquivo consolidado: {e}")
 
     def _write_xml(self, included):
-        raise NotImplementedError("Formato XML será implementado em breve. Use --format txt por enquanto.")
+        lines = ['<documents>\n']
+
+        for i, (file_path, file_info) in enumerate(included, 1):
+            relative = file_path.relative_to(self.input_directory)
+            content = self.read_file_content(file_path)
+            print(f"  Processando: {relative}")
+            lines.append(f'<document index="{i}">\n')
+            lines.append(f'<source>{relative}</source>\n')
+            lines.append('<document_content>\n')
+            lines.append(content)
+            lines.append('\n</document_content>\n')
+            lines.append('</document>\n')
+
+        lines.append('</documents>\n')
+
+        total_chars = sum(info['size'] for _, info in included)
+        try:
+            with open(self.output_file, 'w', encoding='utf-8') as f:
+                f.writelines(lines)
+            self._print_summary(len(included), 0, total_chars)
+        except Exception as e:
+            print(f"❌ Erro ao escrever arquivo consolidado: {e}")
 
     def dry_run(self, max_file_size_mb=10):
         """Mostra arquivos que seriam incluídos sem gerar saída."""
@@ -242,6 +263,7 @@ Exemplos:
   python main.py ./meu-projeto --dry-run
   python main.py ./meu-projeto --ignore "*.test.js" --ignore "coverage/"
   python main.py ./meu-projeto --no-gitignore --max-size 5
+  python main.py ./meu-projeto --format xml -o para-claude.txt
         """
     )
     parser.add_argument(
@@ -257,8 +279,8 @@ Exemplos:
         help='Tamanho máximo por arquivo em MB (padrão: 10)'
     )
     parser.add_argument(
-        '--format', choices=['txt'], default='txt',
-        help='Formato de saída (padrão: txt)'
+        '--format', choices=['txt', 'xml'], default='txt',
+        help='Formato de saída: txt (padrão) ou xml (recomendado para Claude)'
     )
     parser.add_argument(
         '--dry-run', action='store_true',

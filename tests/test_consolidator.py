@@ -118,3 +118,15 @@ def test_dry_run_imprime_arquivos(tmp_project, capsys):
     captured = capsys.readouterr()
     assert "src/main.py" in captured.out
     assert "tokens" in captured.out.lower()
+
+
+def test_formato_xml(tmp_project, tmp_path):
+    output = str(tmp_path / "out.xml")
+    c = FileConsolidator(str(tmp_project), output_file=output, output_format="xml")
+    c.consolidate_files()
+    content = Path(output).read_text()
+    assert "<documents>" in content
+    assert "<document index=" in content
+    assert "<source>" in content
+    assert "<document_content>" in content
+    assert "</documents>" in content
