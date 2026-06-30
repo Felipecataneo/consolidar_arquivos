@@ -72,3 +72,34 @@ def test_ignora_gitignore_quando_desabilitado(tmp_project):
     c = FileConsolidator(str(tmp_project), use_gitignore=False)
     dist_file = tmp_project / "dist" / "bundle.js"
     assert c.should_ignore(dist_file) is False
+
+
+def test_collect_files_inclui_codigo(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    included, skipped = c._collect_files()
+    paths = [str(f.relative_to(tmp_project)) for f, _ in included]
+    assert "src/main.py" in paths
+    assert "src/utils.py" in paths
+    assert "README.md" in paths
+
+
+def test_collect_files_exclui_node_modules(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    included, _ = c._collect_files()
+    paths = [str(f.relative_to(tmp_project)) for f, _ in included]
+    assert not any("node_modules" in p for p in paths)
+
+
+def test_collect_files_exclui_lock(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    included, _ = c._collect_files()
+    names = [f.name for f, _ in included]
+    assert "package-lock.json" not in names
+
+
+def test_collect_files_exclui_gitignored(tmp_project):
+    c = FileConsolidator(str(tmp_project), use_gitignore=True)
+    included, _ = c._collect_files()
+    paths = [str(f.relative_to(tmp_project)) for f, _ in included]
+    assert not any("dist" in p for p in paths)
+    assert "app.log" not in paths

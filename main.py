@@ -135,86 +135,75 @@ class FileConsolidator:
         except:
             return {'size': 0, 'modified': 'Desconhecido'}
 
-    def consolidate_files(self, max_file_size_mb=10):
-        """Consolida todos os arquivos em um único arquivo"""
+    def _collect_files(self, max_file_size_mb=10):
         max_size_bytes = max_file_size_mb * 1024 * 1024
-        consolidated_content = []
-        processed_files = 0
-        skipped_files = 0
-        
-        # Header do arquivo consolidado
-        header = f"""# CONSOLIDAÇÃO DE ARQUIVOS - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-# Diretório base: {self.input_directory.absolute()}
-# Gerado automaticamente para análise por LLM
-{'='*80}
+        included = []
+        skipped = []
 
-"""
-        consolidated_content.append(header)
-        
-        # Percorre todos os arquivos recursivamente
-        for file_path in self.input_directory.rglob('*'):
-            if file_path.is_file() and not self.should_ignore(file_path):
-                
-                # Verifica se é arquivo de texto
-                if not self.is_text_file(file_path):
-                    skipped_files += 1
-                    continue
-                
-                # Verifica tamanho do arquivo
-                file_info = self.get_file_info(file_path)
-                if file_info['size'] > max_size_bytes:
-                    consolidated_content.append(f"\n[ARQUIVO MUITO GRANDE - PULADO]: {file_path.relative_to(self.input_directory)}\n")
-                    skipped_files += 1
-                    continue
-                
-                # Lê o conteúdo do arquivo
-                content = self.read_file_content(file_path)
-                
-                # Adiciona separador e informações do arquivo
-                relative_path = file_path.relative_to(self.input_directory)
-                file_section = f"""
-{'='*80}
-ARQUIVO: {relative_path}
-TAMANHO: {file_info['size']} bytes
-MODIFICADO: {file_info['modified']}
-{'='*80}
+        for file_path in sorted(self.input_directory.rglob('*')):
+            if not file_path.is_file():
+                continue
+            if self.should_ignore(file_path):
+                skipped.append(file_path)
+                continue
+            if not self.is_text_file(file_path):
+                skipped.append(file_path)
+                continue
+            file_info = self.get_file_info(file_path)
+            if file_info['size'] > max_size_bytes:
+                skipped.append(file_path)
+                continue
+            included.append((file_path, file_info))
 
-{content}
+        return included, skipped
 
-"""
-                consolidated_content.append(file_section)
-                processed_files += 1
-                
-                print(f"Processado: {relative_path}")
-        
-        # Escreve arquivo consolidado
+    def _print_summary(self, processed, skipped_count, total_chars):
+        print(f"\n✅ Consolidação concluída!")
+        print(f"📁 Arquivos processados: {processed}")
+        print(f"⏭️  Arquivos pulados: {skipped_count}")
+        print(f"📄 Arquivo de saída: {self.output_file}")
+        print(f"💾 Tamanho final: {os.path.getsize(self.output_file):,} bytes")
+        print(f"🔢 Estimativa de tokens: ~{total_chars // 4:,}")
+
+    def _write_txt(self, included, skipped):
+        lines = []
+        lines.append(f"# CONSOLIDAÇÃO DE ARQUIVOS - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        lines.append(f"# Diretório base: {self.input_directory.absolute()}\n")
+        lines.append('=' * 80 + '\n\n')
+
+        for file_path, file_info in included:
+            relative = file_path.relative_to(self.input_directory)
+            content = self.read_file_content(file_path)
+            lines.append(f"\n{'=' * 80}\n")
+            lines.append(f"ARQUIVO: {relative}\n")
+            lines.append(f"TAMANHO: {file_info['size']} bytes\n")
+            lines.append(f"MODIFICADO: {file_info['modified']}\n")
+            lines.append(f"{'=' * 80}\n\n")
+            lines.append(content)
+            lines.append('\n\n')
+
+        total_chars = sum(info['size'] for _, info in included)
+        lines.append(f"\n{'=' * 80}\n")
+        lines.append("RESUMO\n")
+        lines.append(f"{'=' * 80}\n")
+        lines.append(f"Arquivos processados: {len(included)}\n")
+        lines.append(f"Arquivos pulados: {len(skipped)}\n")
+        lines.append(f"Estimativa de tokens: ~{total_chars // 4:,}\n")
+
         try:
             with open(self.output_file, 'w', encoding='utf-8') as f:
-                f.writelines(consolidated_content)
-                
-            # Footer com estatísticas
-            footer = f"""
-{'='*80}
-RESUMO DA CONSOLIDAÇÃO
-{'='*80}
-Total de arquivos processados: {processed_files}
-Total de arquivos pulados: {skipped_files}
-Arquivo de saída: {self.output_file}
-Tamanho final: {os.path.getsize(self.output_file)} bytes
-{'='*80}
-"""
-            
-            with open(self.output_file, 'a', encoding='utf-8') as f:
-                f.write(footer)
-                
-            print(f"\n✅ Consolidação concluída!")
-            print(f"📁 Arquivos processados: {processed_files}")
-            print(f"⏭️  Arquivos pulados: {skipped_files}")
-            print(f"📄 Arquivo de saída: {self.output_file}")
-            print(f"💾 Tamanho final: {os.path.getsize(self.output_file)} bytes")
-            
+                f.writelines(lines)
+            self._print_summary(len(included), len(skipped), total_chars)
         except Exception as e:
             print(f"❌ Erro ao escrever arquivo consolidado: {e}")
+
+    def consolidate_files(self, max_file_size_mb=10):
+        included, skipped = self._collect_files(max_file_size_mb)
+
+        if self.output_format == 'xml':
+            self._write_xml(included)
+        else:
+            self._write_txt(included, skipped)
 
 def main():
     print("🔄 Consolidador de Arquivos para LLM")
