@@ -1,5 +1,4 @@
 import pytest
-import tempfile
 from pathlib import Path
 from main import FileConsolidator, LOCK_FILES
 
