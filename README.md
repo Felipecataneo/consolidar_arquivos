@@ -1,51 +1,89 @@
 # File Consolidator for LLMs
 
-Este projeto é um consolidador de arquivos de texto e código, ideal para preparar diretórios inteiros para análise por modelos de linguagem (LLMs), como GPT.
+Consolida todos os arquivos de código de um diretório em um único arquivo `.txt` ou `.xml`, ideal para inserir projetos inteiros no contexto de um LLM (Claude, GPT, etc.).
 
-## 🧩 O que ele faz?
-- Lê recursivamente todos os arquivos em um diretório.
-- Detecta codificação automaticamente.
-- Ignora arquivos binários, ocultos ou muito grandes.
-- Consolida arquivos de texto e código em um único arquivo `.txt`.
-- Inclui informações como caminho relativo, tamanho e data de modificação.
+## O que ele faz
 
-## 📂 Exemplos de arquivos aceitos
-Arquivos com extensões como `.py`, `.js`, `.html`, `.css`, `.json`, `.md`, `.sh`, entre muitos outros.
+- Lê recursivamente todos os arquivos de texto/código de um diretório
+- Respeita `.gitignore` automaticamente (exclui `node_modules`, `dist`, `build`, etc.)
+- Exclui lock files automaticamente (`package-lock.json`, `yarn.lock`, `uv.lock`, etc.)
+- Detecta codificação automaticamente
+- Ignora arquivos binários, ocultos e muito grandes
+- Gera estimativa de tokens para saber se vai caber no contexto
+- Suporta formato XML (melhor leitura pelo Claude)
 
-## 🚫 Arquivos ignorados
-- Binários: `.exe`, `.dll`, `.class`, etc.
-- Diretórios comuns como `__pycache__`, `.git`, `node_modules`.
-- Arquivos ocultos (exceto `.env` e `.gitignore`).
-- Arquivos maiores que o limite definido (padrão: 10 MB).
+## Instalação
 
-## 🚀 Como usar
-
-### Requisitos
-- Python 3.7+
-- Biblioteca `chardet` (instale com `pip install chardet`)
-
-### Execução
 ```bash
-python file_consolidator.py
+pip install chardet pathspec
 ```
 
-### Parâmetros interativos
-Durante a execução, o script pedirá:
-- Diretório de entrada (padrão: diretório atual)
-- Nome do arquivo de saída (padrão: `consolidated_files.txt`)
-- Tamanho máximo dos arquivos em MB (padrão: 10 MB)
+Ou com uv:
+```bash
+uv sync
+```
 
-## 📁 Estrutura do arquivo de saída
+## Uso
 
-Cada arquivo consolidado é precedido por um cabeçalho com:
-- Caminho relativo
-- Tamanho
-- Data de modificação
+```bash
+python main.py [diretório] [opções]
+```
 
-Ao final, é exibido um resumo com estatísticas.
+### Argumentos
 
-## 📜 Exemplo de saída
+| Argumento | Descrição | Padrão |
+|-----------|-----------|--------|
+| `diretório` | Diretório de entrada | `.` (atual) |
+| `-o, --output FILE` | Arquivo de saída | `consolidated_files.txt` |
+| `--max-size MB` | Tamanho máximo por arquivo | `10` MB |
+| `--format txt\|xml` | Formato de saída | `txt` |
+| `--dry-run` | Mostra o que seria incluído sem gerar saída | — |
+| `--ignore PADRÃO` | Padrão extra a ignorar (pode repetir) | — |
+| `--no-gitignore` | Não respeita `.gitignore` | — |
 
+### Exemplos
+
+```bash
+# Consolidar o diretório atual
+python main.py .
+
+# Ver o que seria incluído antes de gerar (com estimativa de tokens)
+python main.py ./meu-projeto --dry-run
+
+# Gerar formato XML (recomendado para Claude)
+python main.py ./meu-projeto --format xml -o para-claude.xml
+
+# Ignorar pastas de testes e coverage
+python main.py ./meu-projeto --ignore "tests/" --ignore "coverage/"
+
+# Ignorar arquivos de teste e limitar tamanho
+python main.py ./meu-projeto --ignore "*.test.js" --max-size 5
+
+# Não respeitar .gitignore
+python main.py ./meu-projeto --no-gitignore
+```
+
+## O que é excluído automaticamente
+
+**Diretórios:**
+- `node_modules`, `.venv`, `venv`, `env`
+- `.git`, `.svn`, `.hg`
+- `__pycache__`, `.vscode`, `.idea`
+- Qualquer pasta listada no `.gitignore` do projeto
+
+**Lock files:**
+- `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+- `uv.lock`, `poetry.lock`, `Pipfile.lock`
+- `Gemfile.lock`, `composer.lock`, `Cargo.lock`
+
+**Outros:**
+- Arquivos binários (`.exe`, `.dll`, `.class`, `.so`, etc.)
+- Arquivos ocultos (exceto `.env` e `.gitignore`)
+- Arquivos maiores que o limite definido (padrão: 10 MB)
+
+## Formato de saída
+
+### TXT (padrão)
 ```
 ================================================================================
 ARQUIVO: src/main.py
@@ -57,11 +95,30 @@ def main():
     print("Olá mundo")
 ```
 
-## 🛠️ Customização
-Você pode modificar:
-- Extensões de arquivos permitidas (`self.text_extensions`)
-- Padrões ignorados (`self.ignore_patterns`)
-- Tamanho máximo permitido
+### XML (--format xml)
+```xml
+<documents>
+<document index="1">
+<source>src/main.py</source>
+<document_content>
+def main():
+    print("Olá mundo")
+</document_content>
+</document>
+</documents>
+```
 
-## 📄 Licença
-MIT License
+## Estimativa de tokens
+
+O `--dry-run` mostra uma estimativa de tokens antes de gerar o arquivo:
+
+```
+Arquivos que seriam incluídos (12):
+  src/main.py                                                  (1.2 KB)
+  src/utils.py                                                 (0.8 KB)
+  README.md                                                    (0.5 KB)
+
+Ignorados: 847 arquivos
+
+Estimativa de tokens: ~18.400
+```
