@@ -3,13 +3,22 @@ import mimetypes
 from pathlib import Path
 import chardet
 from datetime import datetime
+import pathspec
+
+LOCK_FILES = {
+    'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+    'uv.lock', 'poetry.lock', 'Pipfile.lock',
+    'Gemfile.lock', 'composer.lock', 'Cargo.lock',
+}
 
 class FileConsolidator:
-    def __init__(self, input_directory=".", output_file="consolidated_files.txt"):
+    def __init__(self, input_directory=".", output_file="consolidated_files.txt",
+                 extra_ignore=None, use_gitignore=True, output_format="txt"):
         self.input_directory = Path(input_directory)
         self.output_file = output_file
-        
-        # Extensões de arquivo que geralmente contêm código/texto
+        self.output_format = output_format
+        self.extra_ignore = extra_ignore or []
+
         self.text_extensions = {
             '.py', '.js', '.html', '.css', '.java', '.cpp', '.c', '.h', '.hpp',
             '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.ts', '.jsx', '.tsx',
@@ -19,15 +28,30 @@ class FileConsolidator:
             '.r', '.scala', '.clj', '.ex', '.exs', '.dart', '.lua', '.pl',
             '.asm', '.s', '.vb', '.cs', '.fs', '.ml', '.hs', '.elm'
         }
-        
-        # Arquivos que devem ser ignorados
-        self.ignore_patterns = {
+
+        self._ignore_dirs = {
             '__pycache__', '.git', '.svn', '.hg', 'node_modules',
-            '.DS_Store', 'Thumbs.db', '.vscode', '.idea', '.venv', 'venv', 'env',
-            '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll', '*.exe',
-            '*.class', '*.jar', '*.war', '*.ear'
+            '.venv', 'venv', 'env', '.vscode', '.idea',
         }
 
+        self._gitignore_spec = self._load_gitignore_spec() if use_gitignore else None
+
+        if self.extra_ignore:
+            self._extra_spec = pathspec.PathSpec.from_lines('gitignore',self.extra_ignore)
+        else:
+            self._extra_spec = None
+
+
+    def _load_gitignore_spec(self):
+        patterns = []
+        for gitignore_path in self.input_directory.rglob('.gitignore'):
+            try:
+                patterns.extend(gitignore_path.read_text(encoding='utf-8', errors='ignore').splitlines())
+            except Exception:
+                pass
+        if not patterns:
+            return None
+        return pathspec.PathSpec.from_lines('gitignore',patterns)
 
     def detect_encoding(self, file_path):
         """Detecta a codificação do arquivo"""
@@ -68,16 +92,27 @@ class FileConsolidator:
     def should_ignore(self, path):
         """Verifica se o arquivo/diretório deve ser ignorado"""
         path = Path(path)
-        
-        # Ignora arquivos/pastas ocultos (começam com .)
-        if path.name.startswith('.') and path.name not in {'.env', '.gitignore'}:
+
+        if path.name in LOCK_FILES:
             return True
-            
-        # Verifica padrões de ignore
-        for pattern in self.ignore_patterns:
-            if pattern in str(path).lower():
+
+        for part in path.parts:
+            if part in self._ignore_dirs:
                 return True
-                
+            if part.startswith('.') and part not in {'.env', '.gitignore'}:
+                return True
+
+        try:
+            relative = str(path.relative_to(self.input_directory))
+        except ValueError:
+            return False
+
+        if self._gitignore_spec and self._gitignore_spec.match_file(relative):
+            return True
+
+        if self._extra_spec and self._extra_spec.match_file(relative):
+            return True
+
         return False
 
     def read_file_content(self, file_path):

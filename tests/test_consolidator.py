@@ -18,3 +18,43 @@ def tmp_project(tmp_path):
     (tmp_path / "dist" / "bundle.js").write_text("// built")
     (tmp_path / "app.log").write_text("log entry")
     return tmp_path
+
+
+def test_ignora_node_modules(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    node_mod = tmp_project / "node_modules" / "lodash.js"
+    assert c.should_ignore(node_mod) is True
+
+
+def test_ignora_lock_files(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    lock = tmp_project / "package-lock.json"
+    assert c.should_ignore(lock) is True
+
+
+def test_lock_files_set():
+    assert "package-lock.json" in LOCK_FILES
+    assert "yarn.lock" in LOCK_FILES
+    assert "uv.lock" in LOCK_FILES
+    assert "poetry.lock" in LOCK_FILES
+
+
+def test_respeita_gitignore(tmp_project):
+    c = FileConsolidator(str(tmp_project), use_gitignore=True)
+    dist_file = tmp_project / "dist" / "bundle.js"
+    log_file = tmp_project / "app.log"
+    assert c.should_ignore(dist_file) is True
+    assert c.should_ignore(log_file) is True
+
+
+def test_nao_ignora_arquivo_normal(tmp_project):
+    c = FileConsolidator(str(tmp_project))
+    main_py = tmp_project / "src" / "main.py"
+    assert c.should_ignore(main_py) is False
+
+
+def test_ignora_extra_pattern(tmp_project):
+    (tmp_project / "src" / "main.test.py").write_text("# test")
+    c = FileConsolidator(str(tmp_project), extra_ignore=["*.test.py"])
+    test_file = tmp_project / "src" / "main.test.py"
+    assert c.should_ignore(test_file) is True
