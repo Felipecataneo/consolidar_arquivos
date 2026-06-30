@@ -37,7 +37,7 @@ class FileConsolidator:
         self._gitignore_spec = self._load_gitignore_spec() if use_gitignore else None
 
         if self.extra_ignore:
-            self._extra_spec = pathspec.PathSpec.from_lines('gitignore',self.extra_ignore)
+            self._extra_spec = pathspec.PathSpec.from_lines('gitignore', self.extra_ignore)
         else:
             self._extra_spec = None
 
@@ -51,7 +51,7 @@ class FileConsolidator:
                 pass
         if not patterns:
             return None
-        return pathspec.PathSpec.from_lines('gitignore',patterns)
+        return pathspec.PathSpec.from_lines('gitignore', patterns)
 
     def detect_encoding(self, file_path):
         """Detecta a codificação do arquivo"""
