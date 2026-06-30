@@ -4,6 +4,7 @@ from pathlib import Path
 import chardet
 from datetime import datetime
 import pathspec
+import argparse
 
 LOCK_FILES = {
     'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
@@ -210,22 +211,61 @@ class FileConsolidator:
             self._write_txt(included, skipped)
 
 def main():
-    print("🔄 Consolidador de Arquivos para LLM")
-    print("-" * 40)
-    
-    # Configurações
-    input_dir = input("📂 Diretório de entrada (. para atual): ").strip() or "."
-    output_file = input("📝 Nome do arquivo de saída (consolidated_files.txt): ").strip() or "consolidated_files.txt"
-    max_size = input("📏 Tamanho máximo por arquivo em MB (10): ").strip()
-    
-    try:
-        max_size = int(max_size) if max_size else 10
-    except ValueError:
-        max_size = 10
-    
-    # Cria o consolidador e executa
-    consolidator = FileConsolidator(input_dir, output_file)
-    consolidator.consolidate_files(max_size)
+    parser = argparse.ArgumentParser(
+        description='Consolida arquivos de código em um único arquivo para uso com LLMs',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemplos:
+  python main.py ./meu-projeto
+  python main.py ./meu-projeto --dry-run
+  python main.py ./meu-projeto --format xml -o para-claude.txt
+  python main.py ./meu-projeto --ignore "*.test.js" --ignore "coverage/"
+  python main.py ./meu-projeto --no-gitignore --max-size 5
+        """
+    )
+    parser.add_argument(
+        'directory', nargs='?', default='.',
+        help='Diretório de entrada (padrão: diretório atual)'
+    )
+    parser.add_argument(
+        '-o', '--output', default='consolidated_files.txt',
+        help='Arquivo de saída (padrão: consolidated_files.txt)'
+    )
+    parser.add_argument(
+        '--max-size', type=float, default=10, metavar='MB',
+        help='Tamanho máximo por arquivo em MB (padrão: 10)'
+    )
+    parser.add_argument(
+        '--format', choices=['txt', 'xml'], default='txt',
+        help='Formato de saída: txt (padrão) ou xml'
+    )
+    parser.add_argument(
+        '--dry-run', action='store_true',
+        help='Mostra arquivos que seriam incluídos sem gerar saída'
+    )
+    parser.add_argument(
+        '--ignore', action='append', default=[], metavar='PADRÃO',
+        help='Padrão adicional a ignorar (pode repetir)'
+    )
+    parser.add_argument(
+        '--no-gitignore', action='store_true',
+        help='Não respeita .gitignore'
+    )
+
+    args = parser.parse_args()
+
+    consolidator = FileConsolidator(
+        input_directory=args.directory,
+        output_file=args.output,
+        extra_ignore=args.ignore,
+        use_gitignore=not args.no_gitignore,
+        output_format=args.format,
+    )
+
+    if args.dry_run:
+        consolidator.dry_run(args.max_size)
+    else:
+        consolidator.consolidate_files(args.max_size)
 
 if __name__ == "__main__":
     main()
