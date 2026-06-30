@@ -58,3 +58,17 @@ def test_ignora_extra_pattern(tmp_project):
     c = FileConsolidator(str(tmp_project), extra_ignore=["*.test.py"])
     test_file = tmp_project / "src" / "main.test.py"
     assert c.should_ignore(test_file) is True
+
+
+def test_ignora_diretorio_em_qualquer_profundidade(tmp_project):
+    nested = tmp_project / "src" / ".git" / "objects" / "file.py"
+    nested.parent.mkdir(parents=True, exist_ok=True)
+    nested.write_text("# git object")
+    c = FileConsolidator(str(tmp_project))
+    assert c.should_ignore(nested) is True
+
+
+def test_ignora_gitignore_quando_desabilitado(tmp_project):
+    c = FileConsolidator(str(tmp_project), use_gitignore=False)
+    dist_file = tmp_project / "dist" / "bundle.js"
+    assert c.should_ignore(dist_file) is False
