@@ -103,3 +103,18 @@ def test_collect_files_exclui_gitignored(tmp_project):
     paths = [str(f.relative_to(tmp_project)) for f, _ in included]
     assert not any("dist" in p for p in paths)
     assert "app.log" not in paths
+
+
+def test_dry_run_nao_cria_arquivo(tmp_project, capsys):
+    output = str(tmp_project / "output.txt")
+    c = FileConsolidator(str(tmp_project), output_file=output)
+    c.dry_run()
+    assert not Path(output).exists()
+
+
+def test_dry_run_imprime_arquivos(tmp_project, capsys):
+    c = FileConsolidator(str(tmp_project))
+    c.dry_run()
+    captured = capsys.readouterr()
+    assert "src/main.py" in captured.out
+    assert "tokens" in captured.out.lower()

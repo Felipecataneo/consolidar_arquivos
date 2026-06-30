@@ -202,6 +202,28 @@ class FileConsolidator:
     def _write_xml(self, included):
         raise NotImplementedError("Formato XML será implementado em breve. Use --format txt por enquanto.")
 
+    def dry_run(self, max_file_size_mb=10):
+        """Mostra arquivos que seriam incluídos sem gerar saída."""
+        included, skipped = self._collect_files(max_file_size_mb)
+
+        print(f"Arquivos que seriam incluídos ({len(included)}):")
+        total_chars = 0
+        for file_path, file_info in included:
+            relative = file_path.relative_to(self.input_directory)
+            size_kb = file_info['size'] / 1024
+            print(f"  {str(relative):<60} ({size_kb:.1f} KB)")
+            total_chars += file_info['size']
+
+        print(f"\nIgnorados: {len(skipped)} arquivos")
+
+        estimated_tokens = total_chars // 4
+        print(f"\nEstimativa de tokens: ~{estimated_tokens:,}")
+
+        if estimated_tokens > 100_000:
+            print("⚠️  Contexto muito grande. Considere usar --ignore ou --max-size.")
+        elif estimated_tokens > 50_000:
+            print("⚠️  Contexto grande. Verifique se todos os arquivos são necessários.")
+
     def consolidate_files(self, max_file_size_mb=10):
         included, skipped = self._collect_files(max_file_size_mb)
 
