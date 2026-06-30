@@ -218,7 +218,6 @@ def main():
 Exemplos:
   python main.py ./meu-projeto
   python main.py ./meu-projeto --dry-run
-  python main.py ./meu-projeto --format xml -o para-claude.txt
   python main.py ./meu-projeto --ignore "*.test.js" --ignore "coverage/"
   python main.py ./meu-projeto --no-gitignore --max-size 5
         """
@@ -236,8 +235,8 @@ Exemplos:
         help='Tamanho máximo por arquivo em MB (padrão: 10)'
     )
     parser.add_argument(
-        '--format', choices=['txt', 'xml'], default='txt',
-        help='Formato de saída: txt (padrão) ou xml'
+        '--format', choices=['txt'], default='txt',
+        help='Formato de saída (padrão: txt)'
     )
     parser.add_argument(
         '--dry-run', action='store_true',
@@ -257,7 +256,7 @@ Exemplos:
     consolidator = FileConsolidator(
         input_directory=args.directory,
         output_file=args.output,
-        extra_ignore=args.ignore,
+        extra_ignore=[p for p in args.ignore if p.strip()],
         use_gitignore=not args.no_gitignore,
         output_format=args.format,
     )
